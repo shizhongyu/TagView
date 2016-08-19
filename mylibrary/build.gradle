@@ -1,0 +1,156 @@
+apply plugin: 'com.android.library'
+// 配置插件
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+
+android {
+    compileSdkVersion 23
+    buildToolsVersion "23.0.3"
+    defaultConfig {
+        minSdkVersion 11
+        targetSdkVersion 23
+        versionCode 1
+        versionName "1.0.0"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'),
+                    'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+}
+
+// 设置项目的信息，需要根据需要自行修改下面的信息
+ext {
+    bintrayRepo = 'zhongyulibrary' // bintray的仓库名
+    bintrayName = 'tagviewlibrary' // bintray上的项目名
+
+    libraryGroupId = '1.0' // JCenter上的GroupId
+    libraryVersion = '1.0.0' // 版本号
+    libraryPackaging = 'aar' // 上传包的类型
+    libraryDescription = 'tagview' // 项目描述
+    siteUrl = 'projectUrl' // 项目的主页
+    gitUrl = 'gitUrl' // Git仓库的地址
+    issuesUrl = 'issuesUrl' // issues的URL地址
+
+    // 配置开发者的信息
+    developerId = 'Id' // ID
+    developerName = 'shizhongyu' // 开发者名称
+    developerEmail = 'bj.lixudong@gmail.com' // 开发者邮箱
+
+    // 设置开源证书的信息
+    licenseName = 'The Apache Software License, Version 2.0'
+    licenseUrl = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+    allLicenses = ["Apache-2.0"]
+}
+
+group = libraryGroupId // 指定项目的GroupId
+version = libraryVersion // 指定项目的版本号
+
+install {
+    repositories.mavenInstaller {
+        // 生成pom.xml的配置信息
+        pom.project {
+            packaging libraryPackaging // 打包的类型
+            name bintrayName // 项目的名称
+            description libraryDescription // 项目的描述
+            url siteUrl // 项目的主页
+
+            // 配置开源证书信息
+            licenses {
+                license {
+                    name licenseName
+                    url licenseUrl
+                }
+            }
+
+            // 配置开发者信息
+            developers {
+                developer {
+                    id developerId
+                    name developerName
+                    email developerEmail
+                }
+            }
+
+            // 软件配置管理信息
+            scm {
+                connection gitUrl
+                developerConnection gitUrl
+                url siteUrl
+            }
+        }
+    }
+}
+
+// 上传源码的task
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+artifacts {
+    archives sourcesJar
+}
+
+// 上传Javadoc
+android.libraryVariants.all { variant ->
+    println variant.javaCompile.classpath.files
+    if (variant.name == 'release') { // 我们只需 release 的 javadoc
+        task("generate${variant.name.capitalize()}Javadoc", type: Javadoc) {
+            source = variant.javaCompile.source
+            classpath = files(variant.javaCompile.classpath.files,
+                    project.android.getBootClasspath())
+            options {
+                encoding "UTF-8"
+                charSet 'UTF-8'
+                author true
+                version true
+                title bintrayName
+                links "http://docs.oracle.com/javase/7/docs/api/"
+                linksOffline "http://d.android.com/reference",
+                        "${android.sdkDirectory}/docs/reference"
+            }
+            exclude '**/BuildConfig.java'
+            exclude '**/R.java'
+        }
+        task("javadoc${variant.name.capitalize()}Jar", type: Jar,
+                dependsOn: "generate${variant.name.capitalize()}Javadoc") {
+            classifier = 'javadoc'
+            from tasks.getByName("generate${variant.name.capitalize()}Javadoc")
+                    .destinationDir
+        }
+        artifacts {
+            archives tasks.getByName("javadoc${variant.name.capitalize()}Jar")
+        }
+    }
+}
+
+// 读取配置的bintray用户的信息
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties')
+        .newDataInputStream())
+// 配置bintray的信息
+bintray {
+    // 读取 local.properties 的 bintray.user
+    user = properties.getProperty("bintray.user")
+    // 读取 local.properties 的 bintray.apikey
+    key = properties.getProperty("bintray.apikey")
+    configurations = ['archives']
+    pkg {
+        repo = bintrayRepo
+        name = bintrayName
+        desc = libraryDescription
+        websiteUrl = siteUrl
+        vcsUrl = gitUrl
+        issueTrackerUrl = issuesUrl
+        licenses = allLicenses
+        labels = ['android'] // 设置标签
+        publish = true
+        publicDownloadNumbers = true
+    }
+}
